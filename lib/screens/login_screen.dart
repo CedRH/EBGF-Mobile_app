@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'signup_screen.dart';
 import 'home_screen.dart';
-import '../models/app_user.dart';
 import '../services/session_service.dart';
+import '../services/auth_service.dart';
 import '../services/admin_mock_data.dart';
 import '../models/audit_log_entry.dart';
 
@@ -44,53 +45,36 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _isLoading = true);
 
-    // TODO: Replace with real Firebase Auth call, e.g.:
-    // final credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
-    //   email: _emailController.text.trim(),
-    //   password: _passwordController.text.trim(),
-    // );
-    // Then fetch role from Firestore using credential.user!.uid
+    try {
+      final user = await AuthService.instance.signIn(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+      );
 
-    await Future.delayed(const Duration(milliseconds: 600)); // placeholder
+      SessionService.instance.login(user);
+      AdminMockData.instance.logAction(
+        action: AuditActionType.login,
+        performedBy: user.email,
+        description: 'Signed in',
+      );
 
-    final email = _emailController.text.trim();
-
-    // Placeholder role logic: anything with "admin" in the email becomes admin.
-    final isAdmin = email.toLowerCase().contains('admin');
-
-    // Try to find an existing mock user with this email (e.g. admin@test.com,
-    // juan@test.com from AdminMockData's seed data) so User Management shows
-    // the same identity you're logged in as. If not found, create one.
-    final existing = AdminMockData.instance.allUsers
-        .where((u) => u.email.toLowerCase() == email.toLowerCase());
-
-    final user = existing.isNotEmpty
-        ? existing.first
-        : AppUser(
-            id: DateTime.now().microsecondsSinceEpoch.toString(),
-            name: email.split('@').first,
-            email: email,
-            role: isAdmin ? UserRole.admin : UserRole.user,
-            createdAt: DateTime.now(),
-          );
-
-    if (existing.isEmpty) {
-      AdminMockData.instance.allUsers.add(user);
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const HomeScreen()),
+      );
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AuthService.instance.friendlyError(e))),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
-
-    SessionService.instance.login(user);
-    AdminMockData.instance.logAction(
-      action: AuditActionType.login,
-      performedBy: user.email,
-      description: 'Signed in',
-    );
-
-    if (!mounted) return;
-    setState(() => _isLoading = false);
-
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const HomeScreen()),
-    );
   }
 
   @override
