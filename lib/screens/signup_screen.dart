@@ -38,7 +38,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       await AuthService.instance.signUp(
         name: _nameController.text.trim(),
         email: _emailController.text.trim(),
-        password: _password_controller.text.trim(),
+        password: _passwordController.text.trim(),
       );
 
       if (!mounted) return;
@@ -80,8 +80,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       labelText: 'Full Name',
                       prefixIcon: Icon(Icons.person_outline),
                     ),
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? 'Enter your name' : null,
+                    validator: (v) => (v == null || v.trim().isEmpty)
+                        ? 'Enter your name'
+                        : null,
                   ),
                   const SizedBox(height: 14),
                   TextFormField(
@@ -92,7 +93,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       prefixIcon: Icon(Icons.email_outlined),
                     ),
                     validator: (v) {
-                      if (v == null || v.trim().isEmpty) return 'Enter your email';
+                      if (v == null || v.trim().isEmpty)
+                        return 'Enter your email';
                       if (!v.contains('@')) return 'Enter a valid email';
                       return null;
                     },
