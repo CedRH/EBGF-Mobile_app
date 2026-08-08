@@ -1,0 +1,38 @@
+name: farm_records_app
+description: A simple farm records app with camera OCR and Excel export.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Camera preview + live frame access
+  camera: ^0.10.6
+
+  # On-device OCR (live text recognition, no photo storage needed)
+  google_mlkit_text_recognition: ^0.13.0
+
+  # Build .xlsx files on-device
+  excel: ^4.0.6
+
+  # Access device temp/storage folders
+  path_provider: ^2.1.3
+
+  # Native share sheet, used to let the user save/send the exported Excel file
+  share_plus: ^10.1.4
+
+  cupertino_icons: ^1.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/icons/chicken_logo.png
