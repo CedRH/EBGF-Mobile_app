@@ -6,7 +6,7 @@ import 'admin/admin_dashboard_screen.dart';
 import '../models/farm_record.dart';
 import '../models/audit_log_entry.dart';
 import '../services/session_service.dart';
-import '../services/admin_mock_data.dart';
+import '../services/audit_log_service.dart';
 
 /// Home screen after login.
 ///
@@ -29,11 +29,12 @@ class _HomeScreenState extends State<HomeScreen> {
   // see the setup guide for exactly where this plugs in.
   final List<FarmRecord> _records = [];
 
-  String get _performedBy => SessionService.instance.currentUser?.email ?? 'unknown';
+  String get _performedBy =>
+      SessionService.instance.currentUser?.email ?? 'unknown';
 
   void _addRecord(FarmRecord record) {
     setState(() => _records.insert(0, record));
-    AdminMockData.instance.logAction(
+    AuditLogService.instance.logAction(
       action: AuditActionType.createRecord,
       performedBy: _performedBy,
       description: 'Tag #${record.tagNumber}',
@@ -43,7 +44,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _deleteRecord(String id) {
     final record = _records.firstWhere((r) => r.id == id);
     setState(() => _records.removeWhere((r) => r.id == id));
-    AdminMockData.instance.logAction(
+    AuditLogService.instance.logAction(
       action: AuditActionType.deleteRecord,
       performedBy: _performedBy,
       description: 'Tag #${record.tagNumber}',
@@ -55,7 +56,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final index = _records.indexWhere((r) => r.id == updated.id);
       if (index != -1) _records[index] = updated;
     });
-    AdminMockData.instance.logAction(
+    AuditLogService.instance.logAction(
       action: AuditActionType.editRecord,
       performedBy: _performedBy,
       description: 'Tag #${updated.tagNumber}',
@@ -110,7 +111,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     label: 'Scan Tag / Add Record',
                     color: const Color(0xFF2E7D32),
                     onTap: () async {
-                      final newRecord = await Navigator.of(context).push<FarmRecord>(
+                      final newRecord =
+                          await Navigator.of(context).push<FarmRecord>(
                         MaterialPageRoute(
                           builder: (_) => ScanScreen(createdBy: userEmail),
                         ),
@@ -145,7 +147,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (_) => AdminDashboardScreen(records: _records),
+                            builder: (_) =>
+                                AdminDashboardScreen(records: _records),
                           ),
                         );
                       },

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/app_user.dart';
 import '../../models/audit_log_entry.dart';
-import '../../services/admin_mock_data.dart';
+import '../../services/audit_log_service.dart';
 import '../../services/session_service.dart';
 
 /// Lets an admin promote a regular farm user to admin, or demote an
@@ -51,9 +51,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         'role': makingAdmin ? 'admin' : 'user',
       });
 
-      AdminMockData.instance.logAction(
-        action:
-            makingAdmin ? AuditActionType.promoteUser : AuditActionType.demoteUser,
+      await AuditLogService.instance.logAction(
+        action: makingAdmin
+            ? AuditActionType.promoteUser
+            : AuditActionType.demoteUser,
         performedBy: SessionService.instance.currentUser?.email ?? 'unknown',
         description: '${user.name} (${user.email})',
       );
@@ -141,7 +142,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
               return Card(
                 elevation: 1,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
                 child: ListTile(
                   leading: CircleAvatar(
                     backgroundColor: user.isAdmin
@@ -152,7 +154,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       style: const TextStyle(color: Colors.white),
                     ),
                   ),
-                  title: Text(user.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  title: Text(user.name,
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
                   subtitle: Text('${user.email}\nRole: ${user.roleLabel}'),
                   isThreeLine: true,
                   trailing: isSelf

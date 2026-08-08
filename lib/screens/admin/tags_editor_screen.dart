@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/audit_log_entry.dart';
 import '../../services/field_config_service.dart';
-import '../../services/admin_mock_data.dart';
+import '../../services/audit_log_service.dart';
 import '../../services/session_service.dart';
 
 /// Lets an admin rename the extra fields shown on every record (e.g.
@@ -53,11 +53,11 @@ class _TagsEditorScreenState extends State<TagsEditorScreen> {
     });
   }
 
-  void _save() {
+  Future<void> _save() async {
     final newLabels = _controllers.map((c) => c.text.trim()).toList();
     FieldConfigService.instance.updateLabels(newLabels);
 
-    AdminMockData.instance.logAction(
+    await AuditLogService.instance.logAction(
       action: AuditActionType.updateFieldConfig,
       performedBy: SessionService.instance.currentUser?.email ?? 'unknown',
       description: 'Fields set to: ${newLabels.join(', ')}',
@@ -94,11 +94,13 @@ class _TagsEditorScreenState extends State<TagsEditorScreen> {
                       Expanded(
                         child: TextFormField(
                           controller: _controllers[index],
-                          decoration: InputDecoration(labelText: 'Field ${index + 1}'),
+                          decoration:
+                              InputDecoration(labelText: 'Field ${index + 1}'),
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
+                        icon: const Icon(Icons.remove_circle_outline,
+                            color: Colors.red),
                         onPressed: () => _removeField(index),
                       ),
                     ],

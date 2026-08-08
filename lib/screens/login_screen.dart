@@ -4,7 +4,7 @@ import 'signup_screen.dart';
 import 'home_screen.dart';
 import '../services/session_service.dart';
 import '../services/auth_service.dart';
-import '../services/admin_mock_data.dart';
+import '../services/audit_log_service.dart';
 import '../models/audit_log_entry.dart';
 
 /// Login screen.
@@ -52,7 +52,7 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       SessionService.instance.login(user);
-      AdminMockData.instance.logAction(
+      await AuditLogService.instance.logAction(
         action: AuditActionType.login,
         performedBy: user.email,
         description: 'Signed in',

@@ -91,4 +91,34 @@ class AuditLogEntry {
     required this.description,
     required this.timestamp,
   });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'action': action.name,
+      'performedBy': performedBy,
+      'description': description,
+      'timestamp': timestamp.toIso8601String(),
+    };
+  }
+
+  factory AuditLogEntry.fromMap(Map<String, dynamic> map) {
+    final rawTimestamp = map['timestamp'];
+    final timestamp = rawTimestamp is String
+        ? DateTime.parse(rawTimestamp)
+        : (rawTimestamp is DateTime
+            ? rawTimestamp
+            : DateTime.fromMillisecondsSinceEpoch(
+                rawTimestamp.millisecondsSinceEpoch));
+
+    return AuditLogEntry(
+      id: map['id'] as String,
+      action: AuditActionType.values.firstWhere(
+        (type) => type.name == map['action'] as String,
+        orElse: () => AuditActionType.login,
+      ),
+      performedBy: map['performedBy'] as String,
+      description: map['description'] as String,
+      timestamp: timestamp,
+    );
+  }
 }

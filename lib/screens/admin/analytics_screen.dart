@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../models/farm_record.dart';
-import '../../services/admin_mock_data.dart';
 
 /// A quick at-a-glance overview: total records, total users, records
 /// added today, and a breakdown of how many records each user has
@@ -13,12 +12,14 @@ class AnalyticsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final totalUsers = AdminMockData.instance.allUsers.length;
+    final totalUsers = 0;
     final today = DateTime.now();
-    final recordsToday = records.where((r) =>
-        r.createdAt.year == today.year &&
-        r.createdAt.month == today.month &&
-        r.createdAt.day == today.day).length;
+    final recordsToday = records
+        .where((r) =>
+            r.createdAt.year == today.year &&
+            r.createdAt.month == today.month &&
+            r.createdAt.day == today.day)
+        .length;
 
     // Group records by whoever created them, for the breakdown bars.
     final Map<String, int> countsByUser = {};
@@ -69,7 +70,8 @@ class AnalyticsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           if (countsByUser.isEmpty)
-            const Text('No records yet.', style: TextStyle(color: Colors.black54))
+            const Text('No records yet.',
+                style: TextStyle(color: Colors.black54))
           else
             ...countsByUser.entries.map((entry) {
               final proportion = entry.value / maxCount;
@@ -87,7 +89,8 @@ class AnalyticsScreen extends StatelessWidget {
                         value: proportion,
                         minHeight: 10,
                         backgroundColor: const Color(0xFFEDEDED),
-                        valueColor: const AlwaysStoppedAnimation(Color(0xFFC62828)),
+                        valueColor:
+                            const AlwaysStoppedAnimation(Color(0xFFC62828)),
                       ),
                     ),
                   ],
@@ -128,8 +131,11 @@ class _StatCard extends StatelessWidget {
           const SizedBox(height: 10),
           Text(value,
               style: const TextStyle(
-                  color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold)),
+          Text(label,
+              style: const TextStyle(color: Colors.white70, fontSize: 12)),
         ],
       ),
     );

@@ -146,8 +146,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       if (v == null || v.trim().isEmpty) {
                         return 'Enter your contact number';
                       }
-                      final digitsOnly = v.trim().replaceAll(
-                          RegExp(r'[^0-9+]'), '');
+                      final digitsOnly =
+                          v.trim().replaceAll(RegExp(r'[^0-9+]'), '');
                       if (digitsOnly.length < 10) {
                         return 'Enter a valid contact number';
                       }
