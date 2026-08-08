@@ -10,6 +10,11 @@ dependencies:
   flutter:
     sdk: flutter
 
+# Firebase
+  firebase_core: ^3.6.0
+  firebase_auth: ^5.3.1
+  cloud_firestore: ^5.4.3
+
   # Camera preview + live frame access
   camera: ^0.10.6
 

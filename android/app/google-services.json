@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "727590475322",
+    "project_id": "ebgf-records",
+    "storage_bucket": "ebgf-records.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:727590475322:android:d4aa2dd94346c410d20703",
+        "android_client_info": {
+          "package_name": "com.example.ebgf"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "727590475322-4hjb1okg6100coa70is4pb3838mfh22k.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAi7sPGEVtk2AXG36rzak_nK188oI0_hzw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "727590475322-4hjb1okg6100coa70is4pb3838mfh22k.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
