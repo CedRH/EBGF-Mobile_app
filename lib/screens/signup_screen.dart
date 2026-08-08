@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../services/auth_service.dart';
 
 /// Sign-up screen.
 ///
-/// NOTE: Wire `_handleSignUp` to FirebaseAuth.createUserWithEmailAndPassword,
-/// then write a new document to Firestore's `users` collection with
-/// { role: "user" } by default. Only you (manually, in the Firestore
-/// console) should ever promote someone to { role: "admin" } — never let
-/// the sign-up form set the role itself, or anyone could sign up as admin.
+/// CHANGE FROM BEFORE: actually creates a Firebase Auth account + a
+/// Firestore `users` profile doc via AuthService, always with role: user.
+/// Only an admin (via User Management, once that's wired to Firestore)
+/// can promote someone — signup itself can never grant admin.
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
 
@@ -33,17 +34,31 @@ class _SignUpScreenState extends State<SignUpScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
 
-    // TODO: Replace with real FirebaseAuth.createUserWithEmailAndPassword
-    // and a Firestore write to create the user's profile with role: "user".
-    await Future.delayed(const Duration(milliseconds: 600));
+    try {
+      await AuthService.instance.signUp(
+        name: _nameController.text.trim(),
+        email: _emailController.text.trim(),
+        password: _password_controller.text.trim(),
+      );
 
-    if (!mounted) return;
-    setState(() => _isLoading = false);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Account created. Please log in.')),
-    );
-    Navigator.of(context).pop();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Account created. Please log in.')),
+      );
+      Navigator.of(context).pop();
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AuthService.instance.friendlyError(e))),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
