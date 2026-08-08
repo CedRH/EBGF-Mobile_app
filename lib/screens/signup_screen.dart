@@ -8,6 +8,16 @@ import '../services/auth_service.dart';
 /// Firestore `users` profile doc via AuthService, always with role: user.
 /// Only an admin (via User Management, once that's wired to Firestore)
 /// can promote someone — signup itself can never grant admin.
+///
+/// UPDATE: "Full Name" is now split into "First Name" + "Last Name"
+/// (matches common Firestore user-doc conventions and makes it easy to
+/// greet/sort users by first name later). Also added a "Contact No."
+/// field. Both first/last name are combined into a single `name` string
+/// when calling AuthService.signUp so the existing signature still
+/// works — if you want firstName/lastName/contactNo stored as their
+/// own separate fields in Firestore, AuthService.signUp and the AppUser
+/// model need a couple of extra params too (see note at the bottom of
+/// this file / ask me and I'll wire that up).
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
 
@@ -17,15 +27,19 @@ class SignUpScreen extends StatefulWidget {
 
 class _SignUpScreenState extends State<SignUpScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
+  final _firstNameController = TextEditingController();
+  final _lastNameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _contactNoController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
 
   @override
   void dispose() {
-    _nameController.dispose();
+    _firstNameController.dispose();
+    _lastNameController.dispose();
     _emailController.dispose();
+    _contactNoController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -34,11 +48,18 @@ class _SignUpScreenState extends State<SignUpScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
 
+    final fullName =
+        '${_firstNameController.text.trim()} ${_lastNameController.text.trim()}'
+            .trim();
+
     try {
       await AuthService.instance.signUp(
-        name: _nameController.text.trim(),
+        name: fullName,
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
+        // NOTE: AuthService.signUp doesn't currently accept a contact
+        // number param. Add one (e.g. `contactNo: _contactNoController
+        // .text.trim(),`) once AuthService/AppUser support storing it.
       );
 
       if (!mounted) return;
@@ -75,13 +96,26 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   TextFormField(
-                    controller: _nameController,
+                    controller: _firstNameController,
+                    textCapitalization: TextCapitalization.words,
                     decoration: const InputDecoration(
-                      labelText: 'Full Name',
+                      labelText: 'First Name',
                       prefixIcon: Icon(Icons.person_outline),
                     ),
                     validator: (v) => (v == null || v.trim().isEmpty)
-                        ? 'Enter your name'
+                        ? 'Enter your first name'
+                        : null,
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _lastNameController,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: const InputDecoration(
+                      labelText: 'Last Name',
+                      prefixIcon: Icon(Icons.person_outline),
+                    ),
+                    validator: (v) => (v == null || v.trim().isEmpty)
+                        ? 'Enter your last name'
                         : null,
                   ),
                   const SizedBox(height: 14),
@@ -93,9 +127,30 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       prefixIcon: Icon(Icons.email_outlined),
                     ),
                     validator: (v) {
-                      if (v == null || v.trim().isEmpty)
+                      if (v == null || v.trim().isEmpty) {
                         return 'Enter your email';
+                      }
                       if (!v.contains('@')) return 'Enter a valid email';
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _contactNoController,
+                    keyboardType: TextInputType.phone,
+                    decoration: const InputDecoration(
+                      labelText: 'Contact No.',
+                      prefixIcon: Icon(Icons.phone_outlined),
+                    ),
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) {
+                        return 'Enter your contact number';
+                      }
+                      final digitsOnly = v.trim().replaceAll(
+                          RegExp(r'[^0-9+]'), '');
+                      if (digitsOnly.length < 10) {
+                        return 'Enter a valid contact number';
+                      }
                       return null;
                     },
                   ),
