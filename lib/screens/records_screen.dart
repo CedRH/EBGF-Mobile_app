@@ -4,36 +4,51 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:io';
 import '../models/farm_record.dart';
+import '../models/audit_log_entry.dart';
 import '../services/field_config_service.dart';
+import '../services/records_service.dart';
+import '../services/audit_log_service.dart';
+import '../services/session_service.dart';
 
 /// Records list.
 ///
-/// PERMISSIONS (as you specified):
+/// PERMISSIONS:
 /// - Admin: can edit AND delete any record.
 /// - Regular farm user: can edit, but the delete button is hidden/disabled.
 ///
-/// EXPORT: The "Export to Excel" button builds a real .xlsx file on the
-/// device using the `excel` package, then opens the native share sheet
-/// (via `share_plus`) so the user can save it to Drive, email it, etc.
-///
-/// CHANGE FROM BEFORE: field columns/rows now come from
-/// FieldConfigService.instance.fieldLabels instead of the hardcoded
-/// "Field 1/2/3" — both on-screen and in the exported spreadsheet.
+/// CHANGE FROM BEFORE: no longer takes `records`/`onDelete`/`onEdit` from
+/// HomeScreen — it reads live from RecordsService.instance.recordsStream
+/// (Firestore) and owns its own delete/edit logic directly, since any
+/// screen can reach that singleton now. This is also why it's real-time:
+/// a change made on another device shows up here automatically.
 class RecordsScreen extends StatelessWidget {
-  final List<FarmRecord> records;
   final bool isAdmin;
-  final void Function(String id) onDelete;
-  final void Function(FarmRecord updated) onEdit;
 
-  const RecordsScreen({
-    super.key,
-    required this.records,
-    required this.isAdmin,
-    required this.onDelete,
-    required this.onEdit,
-  });
+  const RecordsScreen({super.key, required this.isAdmin});
 
-  Future<void> _exportToExcel(BuildContext context) async {
+  String get _performedBy =>
+      SessionService.instance.currentUser?.email ?? 'unknown';
+
+  Future<void> _onDelete(FarmRecord record) async {
+    await RecordsService.instance.deleteRecord(record.id);
+    await AuditLogService.instance.logAction(
+      action: AuditActionType.deleteRecord,
+      performedBy: _performedBy,
+      description: 'Tag #${record.tagNumber}',
+    );
+  }
+
+  Future<void> _onEdit(FarmRecord updated) async {
+    await RecordsService.instance.editRecord(updated);
+    await AuditLogService.instance.logAction(
+      action: AuditActionType.editRecord,
+      performedBy: _performedBy,
+      description: 'Tag #${updated.tagNumber}',
+    );
+  }
+
+  Future<void> _exportToExcel(
+      BuildContext context, List<FarmRecord> records) async {
     final fieldLabels = FieldConfigService.instance.fieldLabels;
     final excelFile = Excel.createExcel();
     final sheet = excelFile['Records'];
@@ -50,7 +65,8 @@ class RecordsScreen extends StatelessWidget {
         TextCellValue(record.tagNumber),
         ...List.generate(
           fieldLabels.length,
-          (i) => TextCellValue(i < record.fieldValues.length ? record.fieldValues[i] : ''),
+          (i) => TextCellValue(
+              i < record.fieldValues.length ? record.fieldValues[i] : ''),
         ),
         TextCellValue(record.createdBy),
         TextCellValue(record.createdAt.toString()),
@@ -74,7 +90,8 @@ class RecordsScreen extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Record?'),
-        content: Text('This will permanently delete tag "${record.tagNumber}".'),
+        content:
+            Text('This will permanently delete tag "${record.tagNumber}".'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -83,7 +100,7 @@ class RecordsScreen extends StatelessWidget {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () {
-              onDelete(record.id);
+              _onDelete(record);
               Navigator.of(context).pop();
             },
             child: const Text('Delete'),
@@ -95,10 +112,6 @@ class RecordsScreen extends StatelessWidget {
 
   void _editRecordDialog(BuildContext context, FarmRecord record) {
     final fieldLabels = FieldConfigService.instance.fieldLabels;
-    // Build one controller per current field label, seeded with the
-    // record's existing value at that position (or blank if the record
-    // was created before this field existed — e.g. an admin added a
-    // field after this record was saved).
     final controllers = List.generate(
       fieldLabels.length,
       (i) => TextEditingController(
@@ -132,7 +145,7 @@ class RecordsScreen extends StatelessWidget {
           ),
           ElevatedButton(
             onPressed: () {
-              onEdit(record.copyWith(
+              _onEdit(record.copyWith(
                 fieldValues: controllers.map((c) => c.text.trim()).toList(),
               ));
               Navigator.of(context).pop();
@@ -146,57 +159,74 @@ class RecordsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('All Records'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.file_download_outlined),
-            tooltip: 'Export to Excel',
-            onPressed: records.isEmpty ? null : () => _exportToExcel(context),
+    return StreamBuilder<List<FarmRecord>>(
+      stream: RecordsService.instance.recordsStream,
+      builder: (context, snapshot) {
+        final records = snapshot.data ?? [];
+
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('All Records'),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.file_download_outlined),
+                tooltip: 'Export to Excel',
+                onPressed: records.isEmpty
+                    ? null
+                    : () => _exportToExcel(context, records),
+              ),
+            ],
           ),
-        ],
-      ),
-      body: records.isEmpty
-          ? const Center(child: Text('No records yet. Scan a tag to add one.'))
-          : ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: records.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 10),
-              itemBuilder: (context, index) {
-                final record = records[index];
-                return Card(
-                  elevation: 1,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  child: ListTile(
-                    title: Text(
-                      record.tagNumber,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    subtitle: Text(
-                      '${record.fieldValues.join(' • ')}\n'
-                      'by ${record.createdBy}',
-                    ),
-                    isThreeLine: true,
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.edit, color: Colors.blueGrey),
-                          onPressed: () => _editRecordDialog(context, record),
-                        ),
-                        // Only admins see/can use the delete button.
-                        if (isAdmin)
-                          IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () => _confirmDelete(context, record),
+          body: !snapshot.hasData
+              ? const Center(child: CircularProgressIndicator())
+              : records.isEmpty
+                  ? const Center(
+                      child: Text('No records yet. Scan a tag to add one.'))
+                  : ListView.separated(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: records.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                      itemBuilder: (context, index) {
+                        final record = records[index];
+                        return Card(
+                          elevation: 1,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                          child: ListTile(
+                            title: Text(
+                              record.tagNumber,
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            subtitle: Text(
+                              '${record.fieldValues.join(' • ')}\n'
+                              'by ${record.createdBy}',
+                            ),
+                            isThreeLine: true,
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.edit,
+                                      color: Colors.blueGrey),
+                                  onPressed: () =>
+                                      _editRecordDialog(context, record),
+                                ),
+                                if (isAdmin)
+                                  IconButton(
+                                    icon: const Icon(Icons.delete,
+                                        color: Colors.red),
+                                    onPressed: () =>
+                                        _confirmDelete(context, record),
+                                  ),
+                              ],
+                            ),
                           ),
-                      ],
+                        );
+                      },
                     ),
-                  ),
-                );
-              },
-            ),
+        );
+      },
     );
   }
 }

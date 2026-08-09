@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import '../models/audit_log_entry.dart';
 
 class AuditLogService {
@@ -10,16 +11,36 @@ class AuditLogService {
   CollectionReference<Map<String, dynamic>> get _auditLogCollection =>
       _firestore.collection('audit_logs');
 
-  Stream<List<AuditLogEntry>> get auditLogStream {
+  /// CHANGED: was a getter with no limit — now a method, capped.
+  Stream<List<AuditLogEntry>> auditLogStream({int limit = 50}) {
     return _auditLogCollection
         .orderBy('timestamp', descending: true)
+        .limit(limit)
         .snapshots()
-        .map((snapshot) {
-      return snapshot.docs.map((doc) {
-        final data = {...doc.data(), 'id': doc.id};
-        return AuditLogEntry.fromMap(data);
-      }).toList();
-    });
+        .map((snapshot) => snapshot.docs
+            .map((doc) => AuditLogEntry.fromMap({...doc.data(), 'id': doc.id}))
+            .toList());
+  }
+
+  /// NEW: last login time for the throttle check below.
+  Future<DateTime?> lastLoginTime(String email) async {
+    try {
+      final snapshot = await _auditLogCollection
+          .where('performedBy', isEqualTo: email)
+          .where('action', isEqualTo: 'login')
+          .orderBy('timestamp', descending: true)
+          .limit(1)
+          .get();
+      if (snapshot.docs.isEmpty) return null;
+      return DateTime.parse(snapshot.docs.first.data()['timestamp'] as String);
+    } on FirebaseException catch (e) {
+      // Some queries require a composite index. Surface a helpful debug
+      // message and return null so login can proceed while the index is
+      // created. The console link is provided in the exception message.
+      debugPrint(
+          'AuditLogService.lastLoginTime failed: ${e.code} ${e.message}');
+      return null;
+    }
   }
 
   Future<void> logAction({
@@ -35,6 +56,9 @@ class AuditLogService {
       timestamp: DateTime.now(),
     );
     final doc = _auditLogCollection.doc();
-    await doc.set(entry.toMap());
+    await doc.set({
+      ...entry.toMap(),
+      'expireAt': DateTime.now().add(const Duration(days: 30)),
+    });
   }
 }

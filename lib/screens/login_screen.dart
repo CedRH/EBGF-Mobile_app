@@ -7,18 +7,6 @@ import '../services/auth_service.dart';
 import '../services/audit_log_service.dart';
 import '../models/audit_log_entry.dart';
 
-/// Login screen.
-///
-/// NOTE: This screen currently checks credentials with placeholder logic
-/// so you can see and test the UI immediately. When you connect Firebase
-/// (see the setup guide), replace `_handleLogin` with a real
-/// FirebaseAuth.signInWithEmailAndPassword call, then look up the user's
-/// role ("admin" or "user") from Firestore.
-///
-/// CHANGE FROM BEFORE: instead of navigating to HomeScreen with
-/// `userEmail`/`isAdmin` constructor params, this now builds an [AppUser]
-/// and stores it in [SessionService]. HomeScreen (and every admin screen
-/// after it) reads the logged-in user from there instead.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -32,6 +20,9 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _isLoading = false;
+  String? _errorMessage;
+
+  static const _errorRed = Color(0xFFC62828);
 
   @override
   void dispose() {
@@ -41,6 +32,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleLogin() async {
+    setState(() => _errorMessage = null);
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
@@ -52,29 +44,70 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       SessionService.instance.login(user);
-      await AuditLogService.instance.logAction(
-        action: AuditActionType.login,
-        performedBy: user.email,
-        description: 'Signed in',
-      );
+
+      final lastLogin =
+          await AuditLogService.instance.lastLoginTime(user.email);
+      if (lastLogin == null ||
+          DateTime.now().difference(lastLogin) > const Duration(minutes: 30)) {
+        await AuditLogService.instance.logAction(
+          action: AuditActionType.login,
+          performedBy: user.email,
+          description: 'Signed in',
+        );
+      }
 
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const HomeScreen()),
       );
-    } on FirebaseAuthException catch (e) {
+    } on FirebaseAuthException catch (e, st) {
+      // Friendly message for common auth failures
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AuthService.instance.friendlyError(e))),
-      );
-    } catch (e) {
+      debugPrint('Auth error during signIn: ${e.code} ${e.message}');
+      debugPrintStack(stackTrace: st);
+      setState(() => _errorMessage = AuthService.instance.friendlyError(e));
+    } catch (e, st) {
+      // Surface the real error to help debugging (trim if too long)
+      debugPrint('Non-auth error during signIn: $e');
+      debugPrintStack(stackTrace: st);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$e')),
-      );
+      final msg = e.toString();
+      setState(() => _errorMessage =
+          msg.length > 250 ? '${msg.substring(0, 250)}...' : msg);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  InputDecoration _fieldDecoration({
+    required String label,
+    required IconData icon,
+    Widget? suffixIcon,
+  }) {
+    final hasError = _errorMessage != null;
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(icon, color: hasError ? _errorRed : null),
+      suffixIcon: suffixIcon,
+      labelStyle: TextStyle(color: hasError ? _errorRed : Colors.black54),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: hasError
+            ? const BorderSide(color: _errorRed, width: 1.5)
+            : BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(
+          color: hasError ? _errorRed : const Color.fromARGB(255, 153, 31, 10),
+          width: 1.5,
+        ),
+      ),
+    );
+  }
+
+  void _clearErrorOnEdit() {
+    if (_errorMessage != null) setState(() => _errorMessage = null);
   }
 
   @override
@@ -90,10 +123,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const SizedBox(height: 40),
-                  Image.asset(
-                    'assets/icons/chicken_logo.png',
-                    height: 72,
-                  ),
+                  Image.asset('assets/icons/chicken_logo.png', height: 72),
                   const SizedBox(height: 12),
                   const Text(
                     'Farm Records',
@@ -105,14 +135,41 @@ class _LoginScreenState extends State<LoginScreen> {
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 14, color: Colors.black54),
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
+                  if (_errorMessage != null) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFDECEA),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: _errorRed, width: 1),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.error, color: _errorRed, size: 20),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              _errorMessage!,
+                              style: const TextStyle(
+                                color: _errorRed,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
-                      labelText: 'Email',
-                      prefixIcon: Icon(Icons.email_outlined),
-                    ),
+                    decoration: _fieldDecoration(
+                        label: 'Email', icon: Icons.email_outlined),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
                         return 'Please enter your email';
@@ -122,14 +179,15 @@ class _LoginScreenState extends State<LoginScreen> {
                       }
                       return null;
                     },
+                    onChanged: (_) => _clearErrorOnEdit(),
                   ),
                   const SizedBox(height: 14),
                   TextFormField(
                     controller: _passwordController,
                     obscureText: _obscurePassword,
-                    decoration: InputDecoration(
-                      labelText: 'Password',
-                      prefixIcon: const Icon(Icons.lock_outline),
+                    decoration: _fieldDecoration(
+                      label: 'Password',
+                      icon: Icons.lock_outline,
                       suffixIcon: IconButton(
                         icon: Icon(_obscurePassword
                             ? Icons.visibility_outlined
@@ -147,6 +205,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       }
                       return null;
                     },
+                    onChanged: (_) => _clearErrorOnEdit(),
                   ),
                   const SizedBox(height: 24),
                   ElevatedButton(
@@ -156,9 +215,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             height: 20,
                             width: 20,
                             child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
+                                strokeWidth: 2, color: Colors.white),
                           )
                         : const Text('Log In'),
                   ),

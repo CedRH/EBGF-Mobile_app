@@ -15,7 +15,7 @@ class AuditLogScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Audit Log')),
       body: StreamBuilder<List<AuditLogEntry>>(
-        stream: AuditLogService.instance.auditLogStream,
+        stream: AuditLogService.instance.auditLogStream(limit: 50),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             return Center(
@@ -50,7 +50,7 @@ class AuditLogScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12)),
                 child: ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: entry.action.color.withOpacity(0.15),
+                    backgroundColor: entry.action.color.withValues(alpha: 0.15),
                     child: Icon(entry.action.icon, color: entry.action.color),
                   ),
                   title: Text(

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../models/farm_record.dart';
 import 'user_management_screen.dart';
 import 'audit_log_screen.dart';
 import 'analytics_screen.dart';
@@ -10,9 +9,7 @@ import 'tags_editor_screen.dart';
 /// the regular HomeScreen) so the admin-only tools have room to grow
 /// without cluttering the screen every regular farm user sees.
 class AdminDashboardScreen extends StatelessWidget {
-  final List<FarmRecord> records;
-
-  const AdminDashboardScreen({super.key, required this.records});
+  const AdminDashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -46,7 +43,7 @@ class AdminDashboardScreen extends StatelessWidget {
               label: 'Analytics',
               color: const Color(0xFF2E7D32),
               onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => AnalyticsScreen(records: records)),
+                MaterialPageRoute(builder: (_) => const AnalyticsScreen()),
               ),
             ),
             _AdminTile(

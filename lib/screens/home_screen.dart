@@ -6,16 +6,17 @@ import 'admin/admin_dashboard_screen.dart';
 import '../models/farm_record.dart';
 import '../models/audit_log_entry.dart';
 import '../services/session_service.dart';
+import '../services/records_service.dart';
 import '../services/audit_log_service.dart';
 
 /// Home screen after login.
 ///
-/// CHANGE FROM BEFORE: no longer takes `userEmail`/`isAdmin` as
-/// constructor params — it reads the logged-in user straight from
-/// [SessionService]. This is what "fixes" the fragile param-passing:
-/// no matter how many screens deep you navigate, any screen can just
-/// ask SessionService who's logged in, instead of needing every route
-/// in between to remember to forward `isAdmin` along.
+/// CHANGE FROM BEFORE: no longer holds `_records` as local State, and no
+/// longer owns delete/edit logic for records. RecordsService.instance is
+/// now the single source of truth (Firestore-backed), so RecordsScreen
+/// reads/writes it directly instead of needing callbacks handed down
+/// from here. HomeScreen only still owns `_addRecord` because that's the
+/// one mutation that originates on this screen (via ScanScreen).
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -24,42 +25,15 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  // In-memory store for now so the UI is fully testable without a backend.
-  // Swap this for a Firestore stream once your backend is connected —
-  // see the setup guide for exactly where this plugs in.
-  final List<FarmRecord> _records = [];
-
   String get _performedBy =>
       SessionService.instance.currentUser?.email ?? 'unknown';
 
-  void _addRecord(FarmRecord record) {
-    setState(() => _records.insert(0, record));
-    AuditLogService.instance.logAction(
+  Future<void> _addRecord(FarmRecord record) async {
+    await RecordsService.instance.addRecord(record);
+    await AuditLogService.instance.logAction(
       action: AuditActionType.createRecord,
       performedBy: _performedBy,
       description: 'Tag #${record.tagNumber}',
-    );
-  }
-
-  void _deleteRecord(String id) {
-    final record = _records.firstWhere((r) => r.id == id);
-    setState(() => _records.removeWhere((r) => r.id == id));
-    AuditLogService.instance.logAction(
-      action: AuditActionType.deleteRecord,
-      performedBy: _performedBy,
-      description: 'Tag #${record.tagNumber}',
-    );
-  }
-
-  void _editRecord(FarmRecord updated) {
-    setState(() {
-      final index = _records.indexWhere((r) => r.id == updated.id);
-      if (index != -1) _records[index] = updated;
-    });
-    AuditLogService.instance.logAction(
-      action: AuditActionType.editRecord,
-      performedBy: _performedBy,
-      description: 'Tag #${updated.tagNumber}',
     );
   }
 
@@ -117,7 +91,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           builder: (_) => ScanScreen(createdBy: userEmail),
                         ),
                       );
-                      if (newRecord != null) _addRecord(newRecord);
+                      if (newRecord != null) await _addRecord(newRecord);
                     },
                   ),
                   _HomeTile(
@@ -127,18 +101,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (_) => RecordsScreen(
-                            records: _records,
-                            isAdmin: isAdmin,
-                            onDelete: _deleteRecord,
-                            onEdit: _editRecord,
-                          ),
+                          builder: (_) => RecordsScreen(isAdmin: isAdmin),
                         ),
                       );
                     },
                   ),
-                  // Admin-only tile — regular farm users never see this,
-                  // since the grid item is simply not added to the list.
                   if (isAdmin)
                     _HomeTile(
                       icon: Icons.admin_panel_settings,
@@ -147,8 +114,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (_) =>
-                                AdminDashboardScreen(records: _records),
+                            builder: (_) => const AdminDashboardScreen(),
                           ),
                         );
                       },
