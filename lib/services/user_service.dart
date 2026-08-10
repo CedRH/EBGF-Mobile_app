@@ -29,4 +29,16 @@ class UserService {
   Future<void> demoteUser(String userId) {
     return _usersCollection.doc(userId).update({'role': UserRole.user.name});
   }
+
+  /// Deletes only the Firestore profile doc — NOT the underlying Firebase
+  /// Auth account (client SDK can't delete other users' Auth accounts;
+  /// that needs a Cloud Function with the Admin SDK, which this project
+  /// doesn't have set up yet).
+  ///
+  /// Effect: the user is immediately locked out, because AuthService.signIn
+  /// throws "No profile found for this account" when the doc is missing —
+  /// even though the Auth account technically still exists.
+  Future<void> deleteUser(String userId) {
+    return _usersCollection.doc(userId).delete();
+  }
 }

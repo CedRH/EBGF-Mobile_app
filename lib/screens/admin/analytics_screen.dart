@@ -132,8 +132,8 @@ class AnalyticsScreen extends StatelessWidget {
                                 children: [
                                   CircleAvatar(
                                     radius: 14,
-                                    backgroundColor:
-                                        entry.action.color.withOpacity(0.15),
+                                    backgroundColor: entry.action.color
+                                        .withValues(alpha: 0.15),
                                     child: Icon(entry.action.icon,
                                         size: 15, color: entry.action.color),
                                   ),

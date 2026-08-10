@@ -13,6 +13,7 @@ enum AuditActionType {
   deleteRecord,
   promoteUser,
   demoteUser,
+  deleteUser,
   updateFieldConfig,
 }
 
@@ -33,6 +34,8 @@ extension AuditActionTypeX on AuditActionType {
         return 'Promoted User';
       case AuditActionType.demoteUser:
         return 'Demoted User';
+      case AuditActionType.deleteUser:
+        return 'Deleted User';
       case AuditActionType.updateFieldConfig:
         return 'Updated Field Labels';
     }
@@ -52,6 +55,9 @@ extension AuditActionTypeX on AuditActionType {
         return const Color(0xFF6A1B9A); // purple
       case AuditActionType.demoteUser:
         return const Color(0xFF616161); // grey
+      case AuditActionType.deleteUser:
+        return const Color(
+            0xFF8B0000); // dark red — distinct from record-delete red
       case AuditActionType.updateFieldConfig:
         return const Color(0xFF00838F); // teal
     }
@@ -71,6 +77,8 @@ extension AuditActionTypeX on AuditActionType {
         return Icons.arrow_upward;
       case AuditActionType.demoteUser:
         return Icons.arrow_downward;
+      case AuditActionType.deleteUser:
+        return Icons.person_remove_outlined;
       case AuditActionType.updateFieldConfig:
         return Icons.label_outline;
     }

@@ -4,8 +4,9 @@ import '../../models/app_user.dart';
 import '../../models/audit_log_entry.dart';
 import '../../services/audit_log_service.dart';
 import '../../services/session_service.dart';
+import '../../services/user_service.dart';
 
-/// Lets an admin promote a regular farm user to admin, or demote an
+/// Lets an admin promote a regular farm user to admin, demote an
 /// admin back to a regular user.
 ///
 /// CHANGE FROM BEFORE: this screen used to read from `AdminMockData
@@ -39,7 +40,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   final CollectionReference<Map<String, dynamic>> _usersRef =
       FirebaseFirestore.instance.collection('users');
 
-  // Tracks which user row currently has a promote/demote write in
+  // Tracks which user row currently has a promote/demote/delete write in
   // flight, so we can disable that row's button and show a spinner
   // instead of letting the admin double-tap while Firestore is busy.
   String? _pendingUserId;
@@ -68,6 +69,31 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     }
   }
 
+  Future<void> _deleteUser(AppUser user) async {
+    setState(() => _pendingUserId = user.id);
+    try {
+      await UserService.instance.deleteUser(user.id);
+
+      await AuditLogService.instance.logAction(
+        action: AuditActionType.deleteUser,
+        performedBy: SessionService.instance.currentUser?.email ?? 'unknown',
+        description: '${user.name} (${user.email})',
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${user.name} removed.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to delete user: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _pendingUserId = null);
+    }
+  }
+
   void _confirmToggleRole(AppUser user) {
     final makingAdmin = user.role == UserRole.user;
     showDialog(
@@ -90,6 +116,34 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
               _toggleRole(user, makingAdmin);
             },
             child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDeleteUser(AppUser user) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Remove User?'),
+        content: Text(
+          'This removes ${user.name} (${user.email}) from the app. '
+          'They will no longer be able to sign in. This cannot be undone '
+          'from here.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () {
+              Navigator.of(context).pop();
+              _deleteUser(user);
+            },
+            child: const Text('Remove'),
           ),
         ],
       ),
@@ -134,7 +188,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           return ListView.separated(
             padding: const EdgeInsets.all(16),
             itemCount: users.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
               final user = users[index];
               final isSelf = user.id == currentUserId;
@@ -143,33 +197,121 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
               return Card(
                 elevation: 1,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: user.isAdmin
-                        ? const Color(0xFF6A1B9A)
-                        : const Color(0xFF1565C0),
-                    child: Text(
-                      user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
-                      style: const TextStyle(color: Colors.white),
-                    ),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                  child: Stack(
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Avatar + name
+                          Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 22,
+                                backgroundColor: user.isAdmin
+                                    ? const Color(0xFF6A1B9A)
+                                    : const Color(0xFF1565C0),
+                                child: Text(
+                                  user.name.isNotEmpty
+                                      ? user.name[0].toUpperCase()
+                                      : '?',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.only(right: 24),
+                                  child: Text(
+                                    user.name,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 15),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          // Email
+                          Text(
+                            user.email,
+                            style: const TextStyle(
+                                color: Colors.black54, fontSize: 13),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 0.5),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                child: RichText(
+                                  text: TextSpan(
+                                    style: const TextStyle(
+                                        fontSize: 13, color: Colors.black87),
+                                    children: [
+                                      const TextSpan(
+                                        text: 'Role: ',
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold),
+                                      ),
+                                      TextSpan(text: user.roleLabel),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              if (isSelf)
+                                const Chip(label: Text('You'))
+                              else if (isPending)
+                                const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              else
+                                OutlinedButton(
+                                  onPressed: () => _confirmToggleRole(user),
+                                  style: OutlinedButton.styleFrom(
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 14, vertical: 4),
+                                    minimumSize: const Size(0, 32),
+                                  ),
+                                  child: Text(
+                                    user.isAdmin ? 'Demote' : 'Promote',
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      // X button, top-right corner
+                      if (!isSelf && !isPending)
+                        Positioned(
+                          top: -8,
+                          right: -8,
+                          child: IconButton(
+                            iconSize: 18,
+                            padding: const EdgeInsets.all(4),
+                            constraints: const BoxConstraints(),
+                            icon: const Icon(Icons.close, color: Colors.red),
+                            tooltip: 'Remove user',
+                            onPressed: () => _confirmDeleteUser(user),
+                          ),
+                        ),
+                    ],
                   ),
-                  title: Text(user.name,
-                      style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text('${user.email}\nRole: ${user.roleLabel}'),
-                  isThreeLine: true,
-                  trailing: isSelf
-                      ? const Chip(label: Text('You'))
-                      : isPending
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : TextButton(
-                              onPressed: () => _confirmToggleRole(user),
-                              child: Text(user.isAdmin ? 'Demote' : 'Promote'),
-                            ),
                 ),
               );
             },
