@@ -8,8 +8,7 @@ import '../models/app_user.dart';
 class AccountPendingApprovalException implements Exception {
   final String message;
   AccountPendingApprovalException([
-    this.message =
-        'Your account is awaiting admin approval. Please check back later.',
+    this.message = 'Waiting for approval.',
   ]);
   @override
   String toString() => message;

@@ -4,7 +4,6 @@ import '../../models/app_user.dart';
 import '../../models/audit_log_entry.dart';
 import '../../services/audit_log_service.dart';
 import '../../services/session_service.dart';
-import '../../services/user_service.dart';
 
 /// Lets an admin promote a regular farm user to admin, demote an
 /// admin back to a regular user.
@@ -133,31 +132,6 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     );
   }
 
-  Future<void> _deleteUser(AppUser user) async {
-    setState(() => _pendingUserId = user.id);
-    try {
-      await UserService.instance.deleteUser(user.id);
-
-      await AuditLogService.instance.logAction(
-        action: AuditActionType.deleteUser,
-        performedBy: SessionService.instance.currentUser?.email ?? 'unknown',
-        description: '${user.name} (${user.email})',
-      );
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${user.name} removed.')),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to delete user: $e')),
-      );
-    } finally {
-      if (mounted) setState(() => _pendingUserId = null);
-    }
-  }
-
   void _confirmToggleRole(AppUser user) {
     final makingAdmin = user.role == UserRole.user;
     showDialog(
@@ -180,34 +154,6 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
               _toggleRole(user, makingAdmin);
             },
             child: const Text('Confirm'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _confirmDeleteUser(AppUser user) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Remove User?'),
-        content: Text(
-          'This removes ${user.name} (${user.email}) from the app. '
-          'They will no longer be able to sign in. This cannot be undone '
-          'from here.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () {
-              Navigator.of(context).pop();
-              _deleteUser(user);
-            },
-            child: const Text('Remove'),
           ),
         ],
       ),
@@ -381,19 +327,6 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                         ],
                       ),
                       // X button, top-right corner
-                      if (!isSelf && !isPending)
-                        Positioned(
-                          top: -8,
-                          right: -8,
-                          child: IconButton(
-                            iconSize: 18,
-                            padding: const EdgeInsets.all(4),
-                            constraints: const BoxConstraints(),
-                            icon: const Icon(Icons.close, color: Colors.red),
-                            tooltip: 'Remove user',
-                            onPressed: () => _confirmDeleteUser(user),
-                          ),
-                        ),
                     ],
                   ),
                 ),
