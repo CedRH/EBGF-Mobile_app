@@ -55,7 +55,7 @@ class _TagsEditorScreenState extends State<TagsEditorScreen> {
 
   Future<void> _save() async {
     final newLabels = _controllers.map((c) => c.text.trim()).toList();
-    FieldConfigService.instance.updateLabels(newLabels);
+    await FieldConfigService.instance.updateLabels(newLabels);
 
     await AuditLogService.instance.logAction(
       action: AuditActionType.updateFieldConfig,

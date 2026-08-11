@@ -43,6 +43,7 @@ class _ScanScreenState extends State<ScanScreen> {
   bool _isCameraReady = false;
   bool _isProcessingFrame = false;
   bool _isStreaming = true;
+  bool _isFlashOn = false;
   String _liveDetectedText = '';
   DateTime _lastProcessed = DateTime.now();
 
@@ -65,6 +66,8 @@ class _ScanScreenState extends State<ScanScreen> {
         ResolutionPreset
             .medium, // medium is plenty for text and keeps frames light
         enableAudio: false,
+        imageFormatGroup: ImageFormatGroup
+            .nv21, // forces single-plane NV21 output so ML Kit can read frames correctly
       );
 
       await controller.initialize();
@@ -118,9 +121,6 @@ class _ScanScreenState extends State<ScanScreen> {
         InputImageRotationValue.fromRawValue(camera.sensorOrientation) ??
             InputImageRotation.rotation0deg;
 
-    final format = InputImageFormatValue.fromRawValue(image.format.raw) ??
-        InputImageFormat.nv21;
-
     final plane = image.planes.first;
 
     return InputImage.fromBytes(
@@ -128,15 +128,23 @@ class _ScanScreenState extends State<ScanScreen> {
       metadata: InputImageMetadata(
         size: Size(image.width.toDouble(), image.height.toDouble()),
         rotation: rotation,
-        format: format,
+        format: InputImageFormat
+            .nv21, // camera now always outputs nv21, so no need to detect
         bytesPerRow: plane.bytesPerRow,
       ),
     );
   }
 
-  void _useDetectedText() {
+  void _useDetectedText() async {
     setState(() => _isStreaming = false);
     _cameraController?.stopImageStream();
+
+    // Turn the flash off before leaving — it shouldn't stay lit while
+    // the user is filling out the record details screen.
+    if (_isFlashOn) {
+      await _cameraController?.setFlashMode(FlashMode.off);
+      setState(() => _isFlashOn = false);
+    }
 
     Navigator.of(context)
         .push(
@@ -158,8 +166,23 @@ class _ScanScreenState extends State<ScanScreen> {
     });
   }
 
+  Future<void> _toggleFlash() async {
+    if (_cameraController == null || !_isCameraReady) return;
+    try {
+      final newMode = _isFlashOn ? FlashMode.off : FlashMode.torch;
+      await _cameraController!.setFlashMode(newMode);
+      setState(() => _isFlashOn = !_isFlashOn);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Flash error: $e')),
+      );
+    }
+  }
+
   @override
   void dispose() {
+    _cameraController?.setFlashMode(FlashMode.off);
     _cameraController?.dispose();
     _textRecognizer.close();
     super.dispose();
@@ -172,6 +195,16 @@ class _ScanScreenState extends State<ScanScreen> {
       appBar: AppBar(
         title: const Text('Scan Tag / Label'),
         backgroundColor: Colors.black,
+        actions: [
+          IconButton(
+            icon: Icon(
+              _isFlashOn ? Icons.flash_on : Icons.flash_off,
+              color: _isFlashOn ? Colors.amber : Colors.white,
+            ),
+            tooltip: _isFlashOn ? 'Turn off flash' : 'Turn on flash',
+            onPressed: _isCameraReady ? _toggleFlash : null,
+          ),
+        ],
       ),
       body: !_isCameraReady
           ? const Center(
@@ -267,7 +300,8 @@ class _RecordDetailsScreen extends StatefulWidget {
 class _RecordDetailsScreenState extends State<_RecordDetailsScreen> {
   late final TextEditingController _tagController =
       TextEditingController(text: widget.initialTagNumber);
-  late final List<String> _fieldLabels = FieldConfigService.instance.fieldLabels;
+  late final List<String> _fieldLabels =
+      FieldConfigService.instance.fieldLabels;
   late final List<TextEditingController> _fieldControllers =
       _fieldLabels.map((_) => TextEditingController()).toList();
   final _formKey = GlobalKey<FormState>();
@@ -294,7 +328,8 @@ class _RecordDetailsScreenState extends State<_RecordDetailsScreen> {
           children: [
             _ConfirmRow(label: 'Tag / Scanned No.', value: _tagController.text),
             for (var i = 0; i < _fieldLabels.length; i++)
-              _ConfirmRow(label: _fieldLabels[i], value: _fieldControllers[i].text),
+              _ConfirmRow(
+                  label: _fieldLabels[i], value: _fieldControllers[i].text),
           ],
         ),
         actions: [
