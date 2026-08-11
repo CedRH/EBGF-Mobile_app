@@ -12,13 +12,12 @@ import 'package:flutter/foundation.dart';
 /// (ScanScreen, RecordsScreen, the Excel export, Tags Editor) reads from
 /// here instead of hardcoding text.
 ///
-/// CHANGE: labels now live in Firestore (`app_config/fields`) instead of
-/// only in memory, so a rename by one admin shows up on every device —
-/// and survives an app restart. The service keeps a live Firestore
-/// listener running from the moment it's first touched, and caches the
-/// latest value in [_fieldLabels] so screens that need labels
-/// synchronously (ScanScreen, RecordsScreen) can keep calling
-/// `fieldLabels` exactly like before — no other screen needs to change.
+/// Labels live in Firestore (`app_config/fields`) so a rename by one
+/// admin shows up on every device and survives an app restart. The
+/// service keeps a live Firestore listener running from the moment it's
+/// first touched, and caches the latest value in [_fieldLabels] so
+/// screens that need labels synchronously (ScanScreen, RecordsScreen)
+/// can keep calling `fieldLabels` exactly like before.
 ///
 /// `extends ChangeNotifier` so screens can optionally listen for changes
 /// with `AnimatedBuilder`/`ListenableBuilder` if you want the UI to
@@ -32,7 +31,7 @@ class FieldConfigService extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   DocumentReference<Map<String, dynamic>> get _fieldsDoc =>
-      _firestore.collection('app_config').doc('fields');
+      _firestore.collection('field_config').doc('labels');
 
   // Sensible starting defaults so the app is usable before Firestore's
   // first snapshot arrives (or before an admin customizes anything).
@@ -50,6 +49,8 @@ class FieldConfigService extends ChangeNotifier {
       if (labels.isEmpty) return; // never allow the UI to go blank
       _fieldLabels = labels;
       notifyListeners();
+    }, onError: (e) {
+      debugPrint('FieldConfigService listen error: $e');
     });
   }
 

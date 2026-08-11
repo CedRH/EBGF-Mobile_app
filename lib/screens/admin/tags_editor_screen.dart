@@ -73,53 +73,55 @@ class _TagsEditorScreenState extends State<TagsEditorScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Tags Editor')),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              'These labels appear when scanning a new record and when '
-              'viewing/editing existing ones.',
-              style: TextStyle(color: Colors.black54, fontSize: 13),
-            ),
-            const SizedBox(height: 20),
-            Expanded(
-              child: ListView.separated(
-                itemCount: _controllers.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 10),
-                itemBuilder: (context, index) {
-                  return Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: _controllers[index],
-                          decoration:
-                              InputDecoration(labelText: 'Field ${index + 1}'),
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.remove_circle_outline,
-                            color: Colors.red),
-                        onPressed: () => _removeField(index),
-                      ),
-                    ],
-                  );
-                },
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'These labels appear when scanning a new record and when '
+                'viewing/editing existing ones.',
+                style: TextStyle(color: Colors.black54, fontSize: 13),
               ),
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: _addField,
-              icon: const Icon(Icons.add),
-              label: const Text('Add Field'),
-            ),
-            const SizedBox(height: 12),
-            ElevatedButton(
-              onPressed: _save,
-              child: const Text('Save Changes'),
-            ),
-          ],
+              const SizedBox(height: 20),
+              Expanded(
+                child: ListView.separated(
+                  itemCount: _controllers.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
+                    return Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _controllers[index],
+                            decoration: InputDecoration(
+                                labelText: 'Field ${index + 1}'),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.remove_circle_outline,
+                              color: Colors.red),
+                          onPressed: () => _removeField(index),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: _addField,
+                icon: const Icon(Icons.add),
+                label: const Text('Add Field'),
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: _save,
+                child: const Text('Save Changes'),
+              ),
+            ],
+          ),
         ),
       ),
     );

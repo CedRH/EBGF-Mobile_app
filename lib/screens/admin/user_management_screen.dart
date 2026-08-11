@@ -69,6 +69,70 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     }
   }
 
+  Future<void> _approveUser(AppUser user) async {
+    setState(() => _pendingUserId = user.id);
+    try {
+      await _usersRef.doc(user.id).update({'status': 'approved'});
+      await AuditLogService.instance.logAction(
+        action: AuditActionType.approveUser,
+        performedBy: SessionService.instance.currentUser?.email ?? 'unknown',
+        description: '${user.name} (${user.email})',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to approve user: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _pendingUserId = null);
+    }
+  }
+
+  Future<void> _rejectUser(AppUser user) async {
+    setState(() => _pendingUserId = user.id);
+    try {
+      await _usersRef.doc(user.id).delete();
+      await AuditLogService.instance.logAction(
+        action: AuditActionType.rejectUser,
+        performedBy: SessionService.instance.currentUser?.email ?? 'unknown',
+        description: '${user.name} (${user.email})',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to reject user: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _pendingUserId = null);
+    }
+  }
+
+  void _confirmReject(AppUser user) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reject Sign-Up?'),
+        content: Text(
+          '${user.name} (${user.email}) will be permanently denied access. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () {
+              Navigator.of(context).pop();
+              _rejectUser(user);
+            },
+            child: const Text('Reject'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _deleteUser(AppUser user) async {
     setState(() => _pendingUserId = user.id);
     try {
@@ -262,6 +326,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                                             fontWeight: FontWeight.bold),
                                       ),
                                       TextSpan(text: user.roleLabel),
+                                      const TextSpan(text: ' • '),
+                                      TextSpan(text: user.statusLabel),
                                     ],
                                   ),
                                 ),
@@ -275,6 +341,24 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                                   height: 20,
                                   child:
                                       CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              else if (!user.isApproved)
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.check_circle,
+                                          color: Colors.green),
+                                      tooltip: 'Approve',
+                                      onPressed: () => _approveUser(user),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.cancel,
+                                          color: Colors.red),
+                                      tooltip: 'Reject',
+                                      onPressed: () => _confirmReject(user),
+                                    ),
+                                  ],
                                 )
                               else
                                 OutlinedButton(

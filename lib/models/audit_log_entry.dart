@@ -15,6 +15,8 @@ enum AuditActionType {
   demoteUser,
   deleteUser,
   updateFieldConfig,
+  approveUser,
+  rejectUser,
 }
 
 /// Small helper so the UI can say `entry.action.color` / `.icon` / `.label`
@@ -38,6 +40,10 @@ extension AuditActionTypeX on AuditActionType {
         return 'Deleted User';
       case AuditActionType.updateFieldConfig:
         return 'Updated Field Labels';
+      case AuditActionType.approveUser:
+        return 'Approved User';
+      case AuditActionType.rejectUser:
+        return 'Rejected User';
     }
   }
 
@@ -60,6 +66,10 @@ extension AuditActionTypeX on AuditActionType {
             0xFF8B0000); // dark red — distinct from record-delete red
       case AuditActionType.updateFieldConfig:
         return const Color(0xFF00838F); // teal
+      case AuditActionType.approveUser:
+        return const Color(0xFF2E7D32); // green
+      case AuditActionType.rejectUser:
+        return const Color(0xFFC62828); // red
     }
   }
 
@@ -81,6 +91,10 @@ extension AuditActionTypeX on AuditActionType {
         return Icons.person_remove_outlined;
       case AuditActionType.updateFieldConfig:
         return Icons.label_outline;
+      case AuditActionType.approveUser:
+        return Icons.check_circle_outline;
+      case AuditActionType.rejectUser:
+        return Icons.cancel_outlined;
     }
   }
 }

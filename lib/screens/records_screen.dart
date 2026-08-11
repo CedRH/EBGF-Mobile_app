@@ -132,7 +132,12 @@ class RecordsScreen extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: 10),
                   child: TextField(
                     controller: controllers[i],
-                    decoration: InputDecoration(labelText: fieldLabels[i]),
+                    decoration: InputDecoration(
+                      labelText: fieldLabels[i],
+                      floatingLabelBehavior: FloatingLabelBehavior.always,
+                      hintText: 'Missing content',
+                      hintStyle: const TextStyle(color: Colors.black38),
+                    ),
                   ),
                 ),
             ],

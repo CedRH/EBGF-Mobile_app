@@ -2,6 +2,19 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/app_user.dart';
 
+/// Thrown when a pending (not-yet-approved) account tries to log in.
+/// Overriding toString() means login_screen's existing `e.toString()`
+/// display shows this message cleanly, without an "Exception: " prefix.
+class AccountPendingApprovalException implements Exception {
+  final String message;
+  AccountPendingApprovalException([
+    this.message =
+        'Your account is awaiting admin approval. Please check back later.',
+  ]);
+  @override
+  String toString() => message;
+}
+
 /// Wraps Firebase Auth + Firestore so the UI screens never talk to
 /// FirebaseAuth/Firestore directly. This replaces the placeholder
 /// "email contains admin" logic from before.
@@ -39,12 +52,20 @@ class AuthService {
       // Auth account exists but no Firestore profile — shouldn't normally
       // happen if everyone signed up through signUp() below, but this
       // keeps the app from crashing if it does.
+      await _auth.signOut();
       throw Exception(
         'No profile found for this account. Please contact an admin.',
       );
     }
 
-    return AppUser.fromMap({...doc.data()!, 'id': uid});
+    final user = AppUser.fromMap({...doc.data()!, 'id': uid});
+
+    if (!user.isApproved) {
+      await _auth.signOut();
+      throw AccountPendingApprovalException();
+    }
+
+    return user;
   }
 
   /// Creates a new Firebase Auth account AND a matching Firestore profile
@@ -65,10 +86,17 @@ class AuthService {
       name: name.trim(),
       email: email.trim(),
       role: UserRole.user,
+      status: UserStatus.pending,
       createdAt: DateTime.now(),
     );
 
     await _usersCollection.doc(uid).set(newUser.toMap());
+
+    // Firebase Auth signs the new account in automatically on creation;
+    // sign back out immediately so a pending user can't remain logged in
+    // before an admin approves them.
+    await _auth.signOut();
+
     return newUser;
   }
 
