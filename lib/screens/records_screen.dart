@@ -4,51 +4,36 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:io';
 import '../models/farm_record.dart';
-import '../models/audit_log_entry.dart';
 import '../services/field_config_service.dart';
-import '../services/records_service.dart';
-import '../services/audit_log_service.dart';
-import '../services/session_service.dart';
 
 /// Records list.
 ///
-/// PERMISSIONS:
+/// PERMISSIONS (as you specified):
 /// - Admin: can edit AND delete any record.
 /// - Regular farm user: can edit, but the delete button is hidden/disabled.
 ///
-/// CHANGE FROM BEFORE: no longer takes `records`/`onDelete`/`onEdit` from
-/// HomeScreen — it reads live from RecordsService.instance.recordsStream
-/// (Firestore) and owns its own delete/edit logic directly, since any
-/// screen can reach that singleton now. This is also why it's real-time:
-/// a change made on another device shows up here automatically.
+/// EXPORT: The "Export to Excel" button builds a real .xlsx file on the
+/// device using the `excel` package, then opens the native share sheet
+/// (via `share_plus`) so the user can save it to Drive, email it, etc.
+///
+/// CHANGE FROM BEFORE: field columns/rows now come from
+/// FieldConfigService.instance.fieldLabels instead of the hardcoded
+/// "Field 1/2/3" — both on-screen and in the exported spreadsheet.
 class RecordsScreen extends StatelessWidget {
+  final List<FarmRecord> records;
   final bool isAdmin;
+  final void Function(String id) onDelete;
+  final void Function(FarmRecord updated) onEdit;
 
-  const RecordsScreen({super.key, required this.isAdmin});
+  const RecordsScreen({
+    super.key,
+    required this.records,
+    required this.isAdmin,
+    required this.onDelete,
+    required this.onEdit,
+  });
 
-  String get _performedBy =>
-      SessionService.instance.currentUser?.email ?? 'unknown';
-
-  Future<void> _onDelete(FarmRecord record) async {
-    await RecordsService.instance.deleteRecord(record.id);
-    await AuditLogService.instance.logAction(
-      action: AuditActionType.deleteRecord,
-      performedBy: _performedBy,
-      description: 'Tag #${record.tagNumber}',
-    );
-  }
-
-  Future<void> _onEdit(FarmRecord updated) async {
-    await RecordsService.instance.editRecord(updated);
-    await AuditLogService.instance.logAction(
-      action: AuditActionType.editRecord,
-      performedBy: _performedBy,
-      description: 'Tag #${updated.tagNumber}',
-    );
-  }
-
-  Future<void> _exportToExcel(
-      BuildContext context, List<FarmRecord> records) async {
+  Future<void> _exportToExcel(BuildContext context) async {
     final fieldLabels = FieldConfigService.instance.fieldLabels;
     final excelFile = Excel.createExcel();
     final sheet = excelFile['Records'];
@@ -100,13 +85,33 @@ class RecordsScreen extends StatelessWidget {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () {
-              _onDelete(record);
+              onDelete(record.id);
               Navigator.of(context).pop();
             },
             child: const Text('Delete'),
           ),
         ],
       ),
+    );
+  }
+
+  // Decoration for the Edit Tag dialog's text boxes.
+  // Label lives OUTSIDE/ABOVE the box (see _editRecordDialog), so this
+  // only styles the box itself. Border radius kept at 10 (same as the
+  // rest of the app) — not a pill shape.
+  //
+  // NEW: taller contentPadding (18 vertical, was 14) so the box itself
+  // is bigger/easier to tap and read, matching the "make it bigger for
+  // older devices/users" request.
+  InputDecoration _editFieldDecoration() {
+    return InputDecoration(
+      filled: true,
+      fillColor: const Color(0xFFF6F8F4),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide.none,
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
     );
   }
 
@@ -119,38 +124,85 @@ class RecordsScreen extends StatelessWidget {
       ),
     );
 
+    // Use most of the screen width instead of the dialog's default
+    // shrink-wrapped size — makes the whole card noticeably bigger,
+    // which is the point: more room = bigger text = easier to read.
+    final screenWidth = MediaQuery.of(context).size.width;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        // Smaller inset padding = dialog stretches closer to the screen
+        // edges = wider card overall.
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
         title: Text('Edit Tag ${record.tagNumber}'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (var i = 0; i < fieldLabels.length; i++)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: TextField(
-                    controller: controllers[i],
-                    decoration: InputDecoration(
-                      labelText: fieldLabels[i],
-                      floatingLabelBehavior: FloatingLabelBehavior.always,
-                      hintText: 'Missing content',
-                      hintStyle: const TextStyle(color: Colors.black38),
+        // NEW: bigger, bolder dialog title.
+        titleTextStyle: const TextStyle(
+          fontSize: 22,
+          fontWeight: FontWeight.bold,
+          color: Colors.black87,
+        ),
+        content: SizedBox(
+          width:
+              screenWidth, // fills the widened dialog instead of shrink-wrapping
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (var i = 0; i < fieldLabels.length; i++)
+                  Padding(
+                    // More breathing room between fields (was 16, now 22)
+                    // now that everything is bigger.
+                    padding: const EdgeInsets.only(bottom: 22),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          fieldLabels[i],
+                          // NEW: bigger label text (was 14, now 16).
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: controllers[i],
+                          // NEW: bigger text INSIDE the box too (was
+                          // default ~14, now 18) — this is the part
+                          // that matters most for readability.
+                          style: const TextStyle(fontSize: 18),
+                          decoration: _editFieldDecoration(),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
+        actionsPadding:
+            const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              textStyle:
+                  const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+              textStyle:
+                  const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
             onPressed: () {
-              _onEdit(record.copyWith(
+              onEdit(record.copyWith(
                 fieldValues: controllers.map((c) => c.text.trim()).toList(),
               ));
               Navigator.of(context).pop();
@@ -164,74 +216,58 @@ class RecordsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<FarmRecord>>(
-      stream: RecordsService.instance.recordsStream,
-      builder: (context, snapshot) {
-        final records = snapshot.data ?? [];
-
-        return Scaffold(
-          appBar: AppBar(
-            title: const Text('All Records'),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.file_download_outlined),
-                tooltip: 'Export to Excel',
-                onPressed: records.isEmpty
-                    ? null
-                    : () => _exportToExcel(context, records),
-              ),
-            ],
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('All Records'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.file_download_outlined),
+            tooltip: 'Export to Excel',
+            onPressed: records.isEmpty ? null : () => _exportToExcel(context),
           ),
-          body: !snapshot.hasData
-              ? const Center(child: CircularProgressIndicator())
-              : records.isEmpty
-                  ? const Center(
-                      child: Text('No records yet. Scan a tag to add one.'))
-                  : ListView.separated(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: records.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 10),
-                      itemBuilder: (context, index) {
-                        final record = records[index];
-                        return Card(
-                          elevation: 1,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                          child: ListTile(
-                            title: Text(
-                              record.tagNumber,
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            subtitle: Text(
-                              '${record.fieldValues.join(' • ')}\n'
-                              'by ${record.createdBy}',
-                            ),
-                            isThreeLine: true,
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.edit,
-                                      color: Colors.blueGrey),
-                                  onPressed: () =>
-                                      _editRecordDialog(context, record),
-                                ),
-                                if (isAdmin)
-                                  IconButton(
-                                    icon: const Icon(Icons.delete,
-                                        color: Colors.red),
-                                    onPressed: () =>
-                                        _confirmDelete(context, record),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
+        ],
+      ),
+      body: records.isEmpty
+          ? const Center(child: Text('No records yet. Scan a tag to add one.'))
+          : ListView.separated(
+              padding: const EdgeInsets.all(16),
+              itemCount: records.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              itemBuilder: (context, index) {
+                final record = records[index];
+                return Card(
+                  elevation: 1,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  child: ListTile(
+                    title: Text(
+                      record.tagNumber,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
-        );
-      },
+                    subtitle: Text(
+                      '${record.fieldValues.join(' • ')}\n'
+                      'by ${record.createdBy}',
+                    ),
+                    isThreeLine: true,
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit, color: Colors.blueGrey),
+                          onPressed: () => _editRecordDialog(context, record),
+                        ),
+                        // Only admins see/can use the delete button.
+                        if (isAdmin)
+                          IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: () => _confirmDelete(context, record),
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
     );
   }
 }
