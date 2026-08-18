@@ -246,20 +246,36 @@ class _StatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration:
-          BoxDecoration(color: color, borderRadius: BorderRadius.circular(14)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF991F0A).withValues(alpha: 0.15),
+            blurRadius: 12,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: Colors.white, size: 26),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 22),
+          ),
           const SizedBox(height: 10),
           Text(value,
               style: const TextStyle(
-                  color: Colors.white,
+                  color: Colors.black87,
                   fontSize: 24,
                   fontWeight: FontWeight.bold)),
           Text(label,
-              style: const TextStyle(color: Colors.white70, fontSize: 12)),
+              style: const TextStyle(color: Colors.black54, fontSize: 12)),
         ],
       ),
     );

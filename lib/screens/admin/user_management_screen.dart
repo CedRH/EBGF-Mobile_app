@@ -204,10 +204,17 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
               final isSelf = user.id == currentUserId;
               final isPending = _pendingUserId == user.id;
 
-              return Card(
-                elevation: 1,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+              return Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF991F0A).withValues(alpha: 0.15),
+                      blurRadius: 12,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
                 ),
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
@@ -216,7 +223,6 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Avatar + name
                           Row(
                             children: [
                               CircleAvatar(
@@ -249,7 +255,6 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                             ],
                           ),
                           const SizedBox(height: 8),
-                          // Email
                           Text(
                             user.email,
                             style: const TextStyle(
@@ -326,7 +331,6 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                           ),
                         ],
                       ),
-                      // X button, top-right corner
                     ],
                   ),
                 ),

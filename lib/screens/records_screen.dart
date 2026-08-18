@@ -235,10 +235,18 @@ class RecordsScreen extends StatelessWidget {
               separatorBuilder: (_, __) => const SizedBox(height: 10),
               itemBuilder: (context, index) {
                 final record = records[index];
-                return Card(
-                  elevation: 1,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                return Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF991F0A).withValues(alpha: 0.15),
+                        blurRadius: 12,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
+                  ),
                   child: ListTile(
                     title: Text(
                       record.tagNumber,
@@ -256,7 +264,6 @@ class RecordsScreen extends StatelessWidget {
                           icon: const Icon(Icons.edit, color: Colors.blueGrey),
                           onPressed: () => _editRecordDialog(context, record),
                         ),
-                        // Only admins see/can use the delete button.
                         if (isAdmin)
                           IconButton(
                             icon: const Icon(Icons.delete, color: Colors.red),

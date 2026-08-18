@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
-import 'screens/login_screen.dart';
+import 'screens/home_screen.dart';
 
 const Color brandColor = Color.fromARGB(255, 153, 31, 10);
 
@@ -66,7 +66,7 @@ class FarmRecordsApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: const LoginScreen(),
+      home: const HomeScreen(), // TODO: Revert to LoginScreen() after testing
     );
   }
 }
