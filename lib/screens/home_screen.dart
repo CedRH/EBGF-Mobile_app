@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'scan_screen.dart';
+import 'add_record_screen.dart';
 import 'records_screen.dart';
 import 'login_screen.dart';
 import 'admin/admin_dashboard_screen.dart';
@@ -112,14 +112,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 crossAxisSpacing: 16,
                 children: [
                   _HomeTile(
-                    icon: Icons.camera_alt,
-                    label: 'Scan Tag / Add Record',
+                    icon: Icons.add_circle_outline,
+                    label: 'Add Record',
                     color: const Color(0xFF2E7D32),
                     onTap: () async {
                       final newRecord =
                           await Navigator.of(context).push<FarmRecord>(
                         MaterialPageRoute(
-                          builder: (_) => ScanScreen(createdBy: userEmail),
+                          builder: (_) => AddRecordScreen(createdBy: userEmail),
                         ),
                       );
                       if (newRecord != null) await _addRecord(newRecord);
@@ -193,40 +193,31 @@ class _HomeTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Same brand red used across the app (AppBar, buttons) — reused here
-    // for the shadow so the tile feels tied to the app, not just a
-    // generic grey drop shadow.
-    const shadowColor = Color.fromARGB(255, 153, 31, 10);
-
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: shadowColor.withValues(alpha: 0.25),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(20),
       ),
-      // Material+InkWell inside the shadowed Container (instead of the
-      // Container being the Material itself) so the tap ripple still
-      // shows correctly without fighting the box shadow/rounded corners.
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(18),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Icon keeps its accent color so tiles stay visually
-                // distinct even on a white background.
-                Icon(icon, size: 40, color: color),
+                Container(
+                  width: 74,
+                  height: 74,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.14),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, size: 36, color: color),
+                ),
                 const SizedBox(height: 12),
                 Text(
                   label,
@@ -234,6 +225,7 @@ class _HomeTile extends StatelessWidget {
                   style: const TextStyle(
                     color: Colors.black87,
                     fontWeight: FontWeight.w600,
+                    fontSize: 18,
                   ),
                 ),
               ],

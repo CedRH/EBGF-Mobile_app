@@ -57,15 +57,21 @@ class _TagsEditorScreenState extends State<TagsEditorScreen> {
     final newLabels = _controllers.map((c) => c.text.trim()).toList();
     await FieldConfigService.instance.updateLabels(newLabels);
 
+    if (!mounted) return;
+
     await AuditLogService.instance.logAction(
       action: AuditActionType.updateFieldConfig,
       performedBy: SessionService.instance.currentUser?.email ?? 'unknown',
       description: 'Fields set to: ${newLabels.join(', ')}',
     );
 
+    if (!mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Field labels updated.')),
     );
+    if (!mounted) return;
+
     Navigator.of(context).pop();
   }
 

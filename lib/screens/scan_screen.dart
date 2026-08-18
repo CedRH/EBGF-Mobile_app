@@ -135,22 +135,22 @@ class _ScanScreenState extends State<ScanScreen> {
     );
   }
 
-  void _useDetectedText() async {
+  void _goToDetails(String tagNumber) {
     setState(() => _isStreaming = false);
     _cameraController?.stopImageStream();
 
     // Turn the flash off before leaving — it shouldn't stay lit while
     // the user is filling out the record details screen.
     if (_isFlashOn) {
-      await _cameraController?.setFlashMode(FlashMode.off);
+      unawaited(_cameraController?.setFlashMode(FlashMode.off));
       setState(() => _isFlashOn = false);
     }
 
     Navigator.of(context)
         .push(
       MaterialPageRoute(
-        builder: (_) => _RecordDetailsScreen(
-          initialTagNumber: _liveDetectedText,
+        builder: (_) => RecordDetailsScreen(
+          initialTagNumber: tagNumber,
           createdBy: widget.createdBy,
         ),
       ),
@@ -158,13 +158,17 @@ class _ScanScreenState extends State<ScanScreen> {
         .then((result) {
       if (result != null && mounted) {
         Navigator.of(context).pop(result); // pass the saved record back to Home
-      } else {
+      } else if (mounted) {
         // user backed out of details screen — resume scanning
         setState(() => _isStreaming = true);
         _cameraController?.startImageStream(_processCameraFrame);
       }
     });
   }
+
+  void _useDetectedText() => _goToDetails(_liveDetectedText);
+
+  void _enterManually() => _goToDetails('');
 
   Future<void> _toggleFlash() async {
     if (_cameraController == null || !_isCameraReady) return;
@@ -234,40 +238,56 @@ class _ScanScreenState extends State<ScanScreen> {
                   left: 0,
                   right: 0,
                   bottom: 0,
-                  child: Container(
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
-                    decoration: const BoxDecoration(
-                      color: Colors.black87,
-                      borderRadius:
-                          BorderRadius.vertical(top: Radius.circular(20)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const Text(
-                          'Detected text:',
-                          style: TextStyle(color: Colors.white70, fontSize: 12),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          _liveDetectedText.isEmpty
-                              ? 'Point the camera at the tag or label...'
-                              : _liveDetectedText,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
+                  child: SafeArea(
+                    top: false,
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+                      decoration: const BoxDecoration(
+                        color: Colors.black87,
+                        borderRadius:
+                            BorderRadius.vertical(top: Radius.circular(20)),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Text(
+                            'Detected text:',
+                            style:
+                                TextStyle(color: Colors.white70, fontSize: 12),
                           ),
-                        ),
-                        const SizedBox(height: 16),
-                        ElevatedButton.icon(
-                          onPressed: _liveDetectedText.isEmpty
-                              ? null
-                              : _useDetectedText,
-                          icon: const Icon(Icons.check),
-                          label: const Text('Use this text'),
-                        ),
-                      ],
+                          const SizedBox(height: 6),
+                          Text(
+                            _liveDetectedText.isEmpty
+                                ? 'Point the camera at the tag or label...'
+                                : _liveDetectedText,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+                          ElevatedButton.icon(
+                            onPressed: _liveDetectedText.isEmpty
+                                ? null
+                                : _useDetectedText,
+                            icon: const Icon(Icons.check),
+                            label: const Text('Use this text'),
+                          ),
+                          const SizedBox(height: 10),
+                          TextButton.icon(
+                            onPressed: _enterManually,
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.white70,
+                            ),
+                            icon: const Icon(Icons.keyboard),
+                            label: const Text('Or Enter Manually'),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -284,20 +304,21 @@ class _ScanScreenState extends State<ScanScreen> {
 /// If an admin adds/removes fields in the Tags Editor, this screen
 /// automatically shows the right number of inputs next time it opens —
 /// no code change needed.
-class _RecordDetailsScreen extends StatefulWidget {
+class RecordDetailsScreen extends StatefulWidget {
   final String initialTagNumber;
   final String createdBy;
 
-  const _RecordDetailsScreen({
+  const RecordDetailsScreen({
+    super.key,
     required this.initialTagNumber,
     required this.createdBy,
   });
 
   @override
-  State<_RecordDetailsScreen> createState() => _RecordDetailsScreenState();
+  State<RecordDetailsScreen> createState() => _RecordDetailsScreenState();
 }
 
-class _RecordDetailsScreenState extends State<_RecordDetailsScreen> {
+class _RecordDetailsScreenState extends State<RecordDetailsScreen> {
   late final TextEditingController _tagController =
       TextEditingController(text: widget.initialTagNumber);
   late final List<String> _fieldLabels =
